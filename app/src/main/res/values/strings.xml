@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ejercicio1</string>
+
+    <!-- Pantalla -->
+    <string name="screen_title">Calculadora</string>
+    <string name="select_calculation">Selecciona el cálculo</string>
+    <string name="btn_calculate">Calcular</string>
+    <string name="formula_content_description">Fórmula del cálculo seleccionado</string>
+
+    <!-- Menú -->
+    <string name="calc_cuadratica">Ecuación Cuadrática</string>
+    <string name="calc_imc">IMC</string>
+    <string name="calc_trapecio">Área del trapecio</string>
+    <string name="calc_rapidez">Rapidez</string>
+
+    <!-- Etiquetas de los campos -->
+    <string name="label_a">Valor a</string>
+    <string name="label_b">Valor b</string>
+    <string name="label_c">Valor c</string>
+    <string name="label_weight">Peso</string>
+    <string name="label_height">Estatura</string>
+    <string name="label_base_major">Base mayor</string>
+    <string name="label_base_minor">Base menor</string>
+    <string name="label_trapezoid_height">Altura</string>
+    <string name="label_distance">Distancia</string>
+    <string name="label_time">Tiempo</string>
+
+    <!-- Unidades (sufijo del campo) -->
+    <string name="unit_kg">kg</string>
+    <string name="unit_m">m</string>
+    <string name="unit_s">s</string>
+
+    <!-- Errores: %1$s = nombre del campo -->
+    <string name="error_required">%1$s: campo obligatorio</string>
+    <string name="error_invalid_number">%1$s: ingresa un número válido</string>
+    <string name="error_positive">%1$s: el valor debe ser mayor que 0</string>
+    <string name="error_non_negative">%1$s: el valor no puede ser negativo</string>
+    <string name="error_zero_a">El valor de a no puede ser 0 en una ecuación cuadrática</string>
+    <string name="error_discriminant">El discriminante debe ser mayor o igual que 0 para obtener raíces reales</string>
+
+    <!-- Resultados: %1$.2f = número con 2 decimales -->
+    <string name="result_quadratic">x1 = %1$.2f, x2 = %2$.2f</string>
+    <string name="result_bmi">IMC: %1$.2f kg/m²</string>
+    <string name="result_trapezoid">Área del trapecio: %1$.2f m²</string>
+    <string name="result_rapidez">Rapidez: %1$.2f m/s</string>
+</resources>

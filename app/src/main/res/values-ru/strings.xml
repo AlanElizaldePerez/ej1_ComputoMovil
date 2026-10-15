@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Динамический калькулятор</string>
+
+    <string name="screen_title">Динамический калькулятор</string>
+    <string name="select_calculation">Выберите расчёт</string>
+
+    <string name="calc_cuadratica">Квадратное уравнение</string>
+    <string name="calc_imc">Индекс массы тела (ИМТ)</string>
+    <string name="calc_trapecio">Площадь трапеции</string>
+    <string name="calc_rapidez">Скорость</string>
+
+    <string name="label_a">Значение a</string>
+    <string name="label_b">Значение b</string>
+    <string name="label_c">Значение c</string>
+
+    <string name="label_weight">Вес</string>
+    <string name="label_height">Рост</string>
+
+    <string name="label_base_major">Большее основание</string>
+    <string name="label_base_minor">Меньшее основание</string>
+    <string name="label_trapezoid_height">Высота</string>
+
+    <string name="label_distance">Расстояние</string>
+    <string name="label_time">Время</string>
+
+    <string name="unit_kg">кг</string>
+    <string name="unit_m">м</string>
+    <string name="unit_s">с</string>
+
+    <string name="btn_calculate">Рассчитать</string>
+
+    <string name="formula_content_description">Используемая формула</string>
+
+    <!-- %1$s = название поля -->
+    <string name="error_required">Поле «%1$s» обязательно для заполнения.</string>
+    <string name="error_invalid_number">Поле «%1$s» должно содержать корректное число. Для дробной части используйте точку (.).</string>
+
+    <string name="error_positive">Значение «%1$s» должно быть больше 0.</string>
+    <string name="error_non_negative">Значение «%1$s» не может быть отрицательным.</string>
+
+    <string name="error_zero_a">Значение a не может быть равно нулю в квадратном уравнении.</string>
+    <string name="error_discriminant">Чтобы получить действительные корни, дискриминант должен быть больше или равен 0.</string>
+
+    <string name="result_quadratic">x1 = %1$.2f, x2 = %2$.2f</string>
+    <string name="result_bmi">ИМТ: %1$.2f кг/м²</string>
+    <string name="result_trapezoid">Площадь трапеции: %1$.2f м²</string>
+    <string name="result_rapidez">Скорость: %1$.2f м/с</string>
+
+    <string name="change_language">Сменить язык</string>
+
+</resources>

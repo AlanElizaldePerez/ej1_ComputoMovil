@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Descripción del botón de idioma (para lectores de pantalla) -->
+    <string name="change_language">Change language</string>
+
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Cada idioma se escribe en su propio idioma, por eso no se traduce -->
+    <string name="language_es" translatable="false">Español</string>
+    <string name="language_en" translatable="false">English</string>
+    <string name="language_ru" translatable="false">Русский</string>
+
+    <!-- Descripción del botón de idioma (para lectores de pantalla) -->
+    <string name="change_language">Cambiar idioma</string>
+
+</resources>

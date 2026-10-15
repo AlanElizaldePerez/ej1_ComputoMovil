@@ -1,0 +1,49 @@
+<resources>
+
+    <string name="app_name">Dynamic Calculator</string>
+
+    <string name="screen_title">Dynamic Calculator</string>
+    <string name="select_calculation">Select a calculation</string>
+
+    <string name="calc_cuadratica">Quadratic Equation</string>
+    <string name="calc_imc">Body Mass Index (BMI)</string>
+    <string name="calc_trapecio">Trapezius area</string>
+    <string name="calc_rapidez">Speed</string>
+
+    <string name="label_a">Value a</string>
+    <string name="label_b">Value b</string>
+    <string name="label_c">Value c</string>
+
+    <string name="label_weight">Weight</string>
+    <string name="label_height">Height</string>
+
+    <string name="label_base_major">Major base</string>
+    <string name="label_base_minor">Minor base</string>
+    <string name="label_trapezoid_height">Height</string>
+
+    <string name="label_distance">Distance</string>
+    <string name="label_time">Time</string>
+
+    <string name="unit_kg">kg</string>
+    <string name="unit_m">m</string>
+    <string name="unit_s">s</string>
+
+    <string name="btn_calculate">Calculate</string>
+
+    <string name="formula_content_description">Formula used</string>
+
+    <string name="error_required">The %1$s field is required.</string>
+    <string name="error_invalid_number">The %1$s field must contain a valid number. Use a period (.) for decimals.</string>
+
+    <string name="error_positive">The value of %1$s must be greater than 0.</string>
+    <string name="error_non_negative">The value of %1$s cannot be negative.</string>
+
+    <string name="error_zero_a">Value a cannot be zero in a quadratic equation.</string>
+    <string name="error_discriminant">The discriminant must be greater than or equal to 0 to obtain real roots.</string>
+
+    <string name="result_quadratic">x1 = %1$.2f, x2 = %2$.2f</string>
+    <string name="result_bmi">BMI: %1$.2f kg/m²</string>
+    <string name="result_trapezoid">Trapezoid area: %1$.2f m²</string>
+    <string name="result_rapidez">Speed: %1$.2f m/s</string>
+
+</resources>
