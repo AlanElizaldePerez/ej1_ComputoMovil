@@ -18,9 +18,9 @@
     <string name="label_weight">Вес</string>
     <string name="label_height">Рост</string>
 
-    <string name="label_base_major">Большее основание</string>
-    <string name="label_base_minor">Меньшее основание</string>
-    <string name="label_trapezoid_height">Высота</string>
+    <string name="label_base_major">Значение a</string>
+    <string name="label_base_minor">Значение b</string>
+    <string name="label_trapezoid_height">Значение h</string>
 
     <string name="label_distance">Расстояние</string>
     <string name="label_time">Время</string>

@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -22,11 +23,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.os.ConfigurationCompat
 import com.alanep.ejercicio1.ui.theme.Ejercicio1Theme
+import java.text.DecimalFormatSymbols
 import java.util.Locale
 import kotlin.math.sqrt
 
@@ -37,24 +43,35 @@ enum class TipoCalculo {
     VELOCIDAD
 }
 
-/*
- * Idiomas disponibles en el menú.
- *
- * Para agregar uno nuevo:
- *  1) crea res/values-XX/strings.xml con las traducciones
- *  2) agrega aquí una entrada (código del idioma + nombre)
- *  3) agrega su nombre en res/values/languages.xml
- *
- * El nombre se escribe en su propio idioma (Español, English, Русский)
- * y no se traduce, por eso está marcado translatable="false".
- */
 enum class Idioma(
     val codigo: String,
-    @StringRes val nombre: Int
+    @StringRes val nombre: Int,
+    val locale: Locale
 ) {
-    ESPANOL(codigo= "es", nombre= R.string.language_es),
-    INGLES(codigo= "en", nombre= R.string.language_en),
-    RUSO(codigo= "ru", nombre= R.string.language_ru)
+    ESPANOL(
+        codigo = "es",
+        nombre = R.string.language_es,
+        locale = Locale.forLanguageTag("es-MX")
+    ),
+
+    INGLES(
+        codigo = "en",
+        nombre = R.string.language_en,
+        locale = Locale.forLanguageTag("en-US")
+    ),
+
+    RUSO(
+        codigo = "ru",
+        nombre = R.string.language_ru,
+        locale = Locale.forLanguageTag("ru-RU")
+    );
+
+    /*
+     * Separador decimal del idioma: '.' en español e inglés, ',' en ruso.
+     * Sale del propio Locale, así siempre coincide con el de los resultados.
+     */
+    val separadorDecimal: Char =
+        DecimalFormatSymbols.getInstance(locale).decimalSeparator
 }
 
 /*
@@ -74,14 +91,48 @@ private object Dimens {
     val AltoFormula = 100.dp
 }
 
+@DrawableRes
+private fun formulaDrawable(
+    tipo: TipoCalculo,
+    idioma: Idioma
+): Int = when (tipo) {
+
+    TipoCalculo.CUADRATICA -> when (idioma) {
+        Idioma.ESPANOL -> R.drawable.formula_cuadratica
+        Idioma.INGLES -> R.drawable.formula_cuadratica
+        Idioma.RUSO -> R.drawable.formula_cuadratica
+    }
+
+    TipoCalculo.IMC -> when (idioma) {
+        Idioma.ESPANOL -> R.drawable.formula_imc
+        Idioma.INGLES -> R.drawable.formula_imc_en
+        Idioma.RUSO -> R.drawable.formula_imc_ru
+    }
+
+    TipoCalculo.TRAPECIO -> when (idioma) {
+        Idioma.ESPANOL -> R.drawable.formula_trapecio
+        Idioma.INGLES -> R.drawable.formula_trapecio
+        Idioma.RUSO -> R.drawable.formula_trapecio_ru
+    }
+
+    TipoCalculo.VELOCIDAD -> when (idioma) {
+        Idioma.ESPANOL -> R.drawable.formula_rapidez
+        Idioma.INGLES -> R.drawable.formula_rapidez_en
+        Idioma.RUSO -> R.drawable.formula_rapidez_ru
+    }
+}
+
 /*
  * Valida la estructura del texto que se está escribiendo.
  *
  * allowSign = true:
- * permite + y - únicamente al principio.
+ * permite - únicamente al principio.
  *
  * allowSign = false:
  * solamente permite números y punto decimal.
+ *
+ * Internamente el decimal SIEMPRE es un punto: la coma del ruso se
+ * convierte a punto en NumericInputField antes de llegar aquí.
  */
 private fun isValidNumericInput(
     value: String,
@@ -93,12 +144,33 @@ private fun isValidNumericInput(
     }
 
     val pattern = if (allowSign) {
-        Regex(pattern= """[+-]?\d*\.?\d*""")
+        Regex(pattern = """[-]?\d*\.?\d*""")
     } else {
-        Regex(pattern= """\d*\.?\d*""")
+        Regex(pattern = """\d*\.?\d*""")
     }
 
-    return pattern.matches(input= value)
+    return pattern.matches(input = value)
+}
+
+/*
+ * Muestra el número con el separador decimal del idioma.
+ *
+ * El texto guardado lleva siempre punto ("1.5"); esta transformación solo
+ * cambia lo que se ve en pantalla ("1,5" en ruso). Como cambia un carácter
+ * por otro, el cursor no se mueve (OffsetMapping.Identity).
+ */
+private class SeparadorDecimalVisual(
+    private val separadorDecimal: Char
+) : VisualTransformation {
+
+    override fun filter(text: AnnotatedString): TransformedText {
+        return TransformedText(
+            text = AnnotatedString(
+                text = text.text.replace(oldChar = '.', newChar = separadorDecimal)
+            ),
+            offsetMapping = OffsetMapping.Identity
+        )
+    }
 }
 
 @Composable
@@ -107,28 +179,42 @@ private fun NumericInputField(
     onValueChange: (String) -> Unit,
     @StringRes labelRes: Int,
     allowSign: Boolean,
+    separadorDecimal: Char,
     @StringRes suffixRes: Int? = null
 ) {
+
+    val transformacionVisual = remember(key1 = separadorDecimal) {
+        SeparadorDecimalVisual(separadorDecimal = separadorDecimal)
+    }
+
     OutlinedTextField(
         value = value,
 
         onValueChange = { newValue ->
-            if (isValidNumericInput(newValue, allowSign)) {
-                onValueChange(newValue)
+
+            val normalizado = newValue.replace(
+                oldChar = separadorDecimal,
+                newChar = '.'
+            )
+
+            if (isValidNumericInput(value = normalizado, allowSign = allowSign)) {
+                onValueChange(normalizado)
             }
         },
 
         label = {
-            Text(stringResource(id= labelRes))
+            Text(text = stringResource(id = labelRes))
         },
 
         suffix = if (suffixRes != null) {
             {
-                Text(stringResource(id= suffixRes))
+                Text(text = stringResource(id = suffixRes))
             }
         } else {
             null
         },
+
+        visualTransformation = transformacionVisual,
 
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.Decimal
@@ -141,19 +227,6 @@ private fun NumericInputField(
     )
 }
 
-
-/*
- * LÓGICA DE CÁLCULO
- *
- * Estas funciones no dibujan nada: reciben los textos de los campos y
- * devuelven el resultado ya traducido, o lanzan una IllegalArgumentException
- * cuyo mensaje también viene de strings.xml.
- */
-
-/*
- * Convierte el texto de un campo a Double.
- * Si está vacío o no es un número, lanza el error correspondiente.
- */
 private fun leerNumero(
     context: Context,
     texto: String,
@@ -173,7 +246,6 @@ private fun leerNumero(
             context.getString(mensajeRes, context.getString(labelRes))
         )
     }
-
     return numero
 }
 
@@ -208,9 +280,9 @@ private fun calcular(
      */
     TipoCalculo.CUADRATICA -> {
 
-        val a = leerNumero(context, campo1, R.string.label_a)
-        val b = leerNumero(context, campo2, R.string.label_b)
-        val c = leerNumero(context, campo3, R.string.label_c)
+        val a = leerNumero(context = context, texto = campo1, labelRes = R.string.label_a)
+        val b = leerNumero(context = context, texto = campo2, labelRes = R.string.label_b)
+        val c = leerNumero(context = context, texto = campo3, labelRes = R.string.label_c)
 
         if (a == 0.0) {
             throw IllegalArgumentException(
@@ -226,8 +298,8 @@ private fun calcular(
             )
         }
 
-        val x1 = (-b + sqrt(discriminante)) / (2 * a)
-        val x2 = (-b - sqrt(discriminante)) / (2 * a)
+        val x1 = (-b + sqrt(x = discriminante)) / (2 * a)
+        val x2 = (-b - sqrt(x = discriminante)) / (2 * a)
 
         context.getString(R.string.result_quadratic, x1, x2)
     }
@@ -237,11 +309,11 @@ private fun calcular(
      */
     TipoCalculo.IMC -> {
 
-        val peso = leerNumero(context, campo1, R.string.label_weight)
-        val altura = leerNumero(context, campo2, R.string.label_height)
+        val peso = leerNumero(context = context, texto = campo1, labelRes = R.string.label_weight)
+        val altura = leerNumero(context = context, texto = campo2, labelRes = R.string.label_height)
 
-        exigirPositivo(context, peso, R.string.label_weight)
-        exigirPositivo(context, altura, R.string.label_height)
+        exigirPositivo(context = context, valor = peso, labelRes = R.string.label_weight)
+        exigirPositivo(context = context, valor = altura, labelRes = R.string.label_height)
 
         val imc = peso / (altura * altura)
 
@@ -253,13 +325,13 @@ private fun calcular(
      */
     TipoCalculo.TRAPECIO -> {
 
-        val baseMayor = leerNumero(context, texto= campo1, labelRes= R.string.label_base_major)
-        val baseMenor = leerNumero(context, texto= campo2, labelRes= R.string.label_base_minor)
-        val altura = leerNumero(context, texto= campo3, labelRes= R.string.label_trapezoid_height)
+        val baseMayor = leerNumero(context = context, texto = campo1, labelRes = R.string.label_base_major)
+        val baseMenor = leerNumero(context = context, texto = campo2, labelRes = R.string.label_base_minor)
+        val altura = leerNumero(context = context, texto = campo3, labelRes = R.string.label_trapezoid_height)
 
-        exigirPositivo(context, valor= baseMayor, labelRes= R.string.label_base_major)
-        exigirPositivo(context, valor= baseMenor, labelRes= R.string.label_base_minor)
-        exigirPositivo(context, valor= altura, labelRes= R.string.label_trapezoid_height)
+        exigirPositivo(context = context, valor = baseMayor, labelRes = R.string.label_base_major)
+        exigirPositivo(context = context, valor = baseMenor, labelRes = R.string.label_base_minor)
+        exigirPositivo(context = context, valor = altura, labelRes = R.string.label_trapezoid_height)
 
         val area = ((baseMayor + baseMenor) * altura) / 2
 
@@ -271,8 +343,8 @@ private fun calcular(
      */
     TipoCalculo.VELOCIDAD -> {
 
-        val distancia = leerNumero(context, campo1, R.string.label_distance)
-        val tiempo = leerNumero(context, campo2, R.string.label_time)
+        val distancia = leerNumero(context = context, texto = campo1, labelRes = R.string.label_distance)
+        val tiempo = leerNumero(context = context, texto = campo2, labelRes = R.string.label_time)
 
         if (distancia < 0) {
             throw IllegalArgumentException(
@@ -283,7 +355,7 @@ private fun calcular(
             )
         }
 
-        exigirPositivo(context, tiempo, R.string.label_time)
+        exigirPositivo(context = context, valor = tiempo, labelRes = R.string.label_time)
 
         val velocidad = distancia / tiempo
 
@@ -294,15 +366,6 @@ private fun calcular(
 
 /*
  * CAMBIO DE IDIOMA
- *
- * Cambia el idioma de TODA la interfaz sin reiniciar la Activity:
- * crea un Context con otro Locale y se lo entrega a Compose, así
- * stringResource() y context.getString() leen values-en, values-ru, etc.
- *
- * codigo = null significa "usar el idioma del sistema".
- *
- * (AppCompatDelegate.setApplicationLocales() no sirve aquí: exige
- * AppCompatActivity y un tema AppCompat, y MainActivity es ComponentActivity.)
  */
 @Composable
 private fun ConIdioma(
@@ -313,33 +376,22 @@ private fun ConIdioma(
     val configuration = LocalConfiguration.current
 
     val (contextoLocal, configuracionLocal) =
-        remember(key1= codigo, key2= context, key3= configuration) {
+        remember(key1 = codigo, key2 = context, key3 = configuration) {
 
-            if (codigo == null) {
+            val codigoSistema = ConfigurationCompat
+                .getLocales(configuration)
+                .get(0)
+                ?.language
 
-                context to configuration
+            val idioma = Idioma.entries.firstOrNull { it.codigo == codigo }
+                ?: Idioma.entries.firstOrNull { it.codigo == codigoSistema }
+                ?: Idioma.ESPANOL
 
-            } else {
-
-                /*
-                 * Si el idioma elegido ya es el del sistema se conserva su
-                 * Locale completo (por ejemplo es-MX), así los números siguen
-                 * mostrándose con punto decimal.
-                 */
-                val localeSistema = ConfigurationCompat
-                    .getLocales(configuration)
-                    .get(0)
-
-                val locale = localeSistema
-                    ?.takeIf { it.language == codigo }
-                    ?: Locale.forLanguageTag(codigo)
-
-                val nueva = Configuration(configuration).apply {
-                    setLocale(locale)
-                }
-
-                context.createConfigurationContext(nueva) to nueva
+            val nueva = Configuration(configuration).apply {
+                setLocale(idioma.locale)
             }
+
+            context.createConfigurationContext(nueva) to nueva
         }
 
     CompositionLocalProvider(
@@ -350,15 +402,16 @@ private fun ConIdioma(
     }
 }
 
-/*
- * Código del idioma que se está mostrando ahora ("es", "en", "ru"...).
- */
 @Composable
-private fun codigoIdiomaActual(): String? =
-    ConfigurationCompat
+private fun idiomaActual(): Idioma {
+
+    val codigo = ConfigurationCompat
         .getLocales(LocalConfiguration.current)
         .get(0)
         ?.language
+
+    return Idioma.entries.firstOrNull { it.codigo == codigo } ?: Idioma.ESPANOL
+}
 
 
 class MainActivity : ComponentActivity() {
@@ -373,13 +426,11 @@ class MainActivity : ComponentActivity() {
         setContent {
 
             /*
-             * Idioma elegido por el usuario (null = el del sistema).
-             *
-             * rememberSaveable lo conserva al girar el dispositivo y
+             * rememberSaveable conserva el idioma al girar el dispositivo y
              * SharedPreferences al cerrar y volver a abrir la app.
              */
             var codigoIdioma by rememberSaveable {
-                mutableStateOf(preferencias.getString(CLAVE_IDIOMA, null))
+                mutableStateOf(value = preferencias.getString(CLAVE_IDIOMA, null))
             }
 
             Ejercicio1Theme {
@@ -410,7 +461,7 @@ class MainActivity : ComponentActivity() {
                     ) { innerPadding ->
 
                         CalculadoraScreen(
-                            modifier = Modifier.padding(innerPadding)
+                            modifier = Modifier.padding(paddingValues = innerPadding)
                         )
                     }
                 }
@@ -430,7 +481,7 @@ private fun BarraSuperior(
 ) {
     TopAppBar(
         title = {
-            Text(text = stringResource(R.string.screen_title))
+            Text(text = stringResource(id = R.string.screen_title))
         },
 
         actions = {
@@ -439,7 +490,7 @@ private fun BarraSuperior(
 
         // Respeta el notch y las barras del sistema también en horizontal.
         windowInsets = WindowInsets.safeDrawing.only(
-            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+            sides = WindowInsetsSides.Top + WindowInsetsSides.Horizontal
         )
     )
 }
@@ -452,19 +503,16 @@ private fun BarraSuperior(
 private fun BotonIdioma(
     onIdiomaSeleccionado: (Idioma) -> Unit
 ) {
-    var expandido by remember { mutableStateOf(false) }
+    var expandido by remember { mutableStateOf(value = false) }
 
-    // Si el idioma del sistema no está en la lista se usa el de values/ (español).
-    val codigoActual = codigoIdiomaActual()
-    val idiomaActivo = Idioma.entries.firstOrNull { it.codigo == codigoActual }
-        ?: Idioma.ESPANOL
+    val idiomaActivo = idiomaActual()
 
     Box {
 
         IconButton(onClick = { expandido = true }) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_language),
-                contentDescription = stringResource(R.string.change_language)
+                contentDescription = stringResource(id = R.string.change_language)
             )
         }
 
@@ -477,7 +525,7 @@ private fun BotonIdioma(
 
                 DropdownMenuItem(
                     text = {
-                        Text(text = stringResource(idioma.nombre))
+                        Text(text = stringResource(id = idioma.nombre))
                     },
 
                     leadingIcon = {
@@ -501,11 +549,6 @@ private fun BotonIdioma(
 @Composable
 fun CalculadoraScreen(
     modifier: Modifier = Modifier,
-
-    /*
-     * Por defecto se calcula con la orientación real del dispositivo.
-     * Se puede forzar (true / false) para probarlo en las vistas previas.
-     */
     esHorizontal: Boolean =
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 ) {
@@ -514,46 +557,38 @@ fun CalculadoraScreen(
     val foco = LocalFocusManager.current
 
     /*
-     * Idioma que se está mostrando. Se usa como "llave" del resultado y del
-     * error: cuando cambia el idioma se limpian, porque ya son texto traducido
-     * en el idioma anterior. Al girar el dispositivo el idioma no cambia,
-     * así que ahí no se pierden.
+     * Idioma que se está mostrando. Se usa para:
+     *  - elegir la imagen de la fórmula
+     *  - saber qué separador decimal se escribe (punto o coma)
+     *  - como "llave" del resultado y del error: cuando cambia el idioma se
+     *    limpian, porque ya son texto traducido en el idioma anterior.
      */
-    val idioma = codigoIdiomaActual()
+    val idiomaActivo = idiomaActual()
+    val separadorDecimal = idiomaActivo.separadorDecimal
 
-    /*
-     * rememberSaveable permite conservar estos valores
-     * cuando Android recrea la Activity, por ejemplo
-     * al girar el dispositivo.
-     */
     var seleccion by rememberSaveable {
-        mutableStateOf(TipoCalculo.CUADRATICA)
+        mutableStateOf(value = TipoCalculo.CUADRATICA)
     }
 
     var campo1 by rememberSaveable {
-        mutableStateOf("")
+        mutableStateOf(value = "")
     }
 
     var campo2 by rememberSaveable {
-        mutableStateOf("")
+        mutableStateOf(value = "")
     }
 
     var campo3 by rememberSaveable {
-        mutableStateOf("")
+        mutableStateOf(value = "")
     }
 
-    var resultado by rememberSaveable(idioma) {
-        mutableStateOf("")
+    var resultado by rememberSaveable(idiomaActivo) {
+        mutableStateOf(value = "")
     }
 
-    var errorMensaje by rememberSaveable(idioma) {
-        mutableStateOf<String?>(null)
+    var errorMensaje by rememberSaveable(idiomaActivo) {
+        mutableStateOf<String?>(value = null)
     }
-
-    /*
-     * Cambia de cálculo y deja la pantalla limpia.
-     * Este bloque antes estaba repetido en cada botón del menú.
-     */
     fun seleccionar(tipo: TipoCalculo) {
         seleccion = tipo
         errorMensaje = null
@@ -569,16 +604,16 @@ fun CalculadoraScreen(
 
         /*
          * PANEL IZQUIERDO: menú y fórmula
-         * (el título ahora está en la barra superior)
+         * (el título está en la barra superior)
          */
         izquierdo = {
 
             Text(
-                text = stringResource(R.string.select_calculation)
+                text = stringResource(id = R.string.select_calculation)
             )
 
             Spacer(
-                modifier = Modifier.height(Dimens.Medio)
+                modifier = Modifier.height(height = Dimens.Medio)
             )
 
             /*
@@ -592,18 +627,18 @@ fun CalculadoraScreen(
                 BotonMenu(
                     textoRes = R.string.calc_cuadratica,
                     seleccionado = seleccion == TipoCalculo.CUADRATICA,
-                    onClick = { seleccionar(TipoCalculo.CUADRATICA) }
+                    onClick = { seleccionar(tipo = TipoCalculo.CUADRATICA) }
                 )
 
                 BotonMenu(
                     textoRes = R.string.calc_imc,
                     seleccionado = seleccion == TipoCalculo.IMC,
-                    onClick = { seleccionar(TipoCalculo.IMC) }
+                    onClick = { seleccionar(tipo = TipoCalculo.IMC) }
                 )
             }
 
             Spacer(
-                modifier = Modifier.height(Dimens.Chico)
+                modifier = Modifier.height(height = Dimens.Chico)
             )
 
             /*
@@ -617,47 +652,40 @@ fun CalculadoraScreen(
                 BotonMenu(
                     textoRes = R.string.calc_trapecio,
                     seleccionado = seleccion == TipoCalculo.TRAPECIO,
-                    onClick = { seleccionar(TipoCalculo.TRAPECIO) }
+                    onClick = { seleccionar(tipo = TipoCalculo.TRAPECIO) }
                 )
 
                 BotonMenu(
                     textoRes = R.string.calc_rapidez,
                     seleccionado = seleccion == TipoCalculo.VELOCIDAD,
-                    onClick = { seleccionar(TipoCalculo.VELOCIDAD) }
+                    onClick = { seleccionar(tipo = TipoCalculo.VELOCIDAD) }
                 )
             }
 
             Spacer(
-                modifier = Modifier.height(Dimens.Medio)
+                modifier = Modifier.height(height = Dimens.Medio)
             )
 
             /*
              * FÓRMULA DINÁMICA
+             *
+             * La imagen depende del cálculo Y del idioma: al cambiar
+             * el idioma se recompone con la imagen del idioma nuevo.
              */
-            val imageRes = when (seleccion) {
-
-                TipoCalculo.CUADRATICA ->
-                    R.drawable.formula_cuadratica
-
-                TipoCalculo.IMC ->
-                    R.drawable.formula_imc
-
-                TipoCalculo.TRAPECIO ->
-                    R.drawable.formula_trapecio
-
-                TipoCalculo.VELOCIDAD ->
-                    R.drawable.formula_rapidez
-            }
+            val imageRes = formulaDrawable(
+                tipo = seleccion,
+                idioma = idiomaActivo
+            )
 
             Image(
                 painter = painterResource(id = imageRes),
 
                 contentDescription =
                     stringResource(
-                        R.string.formula_content_description
+                        id = R.string.formula_content_description
                     ),
 
-                modifier = Modifier.height(Dimens.AltoFormula)
+                modifier = Modifier.height(height = Dimens.AltoFormula)
             )
         },
 
@@ -674,7 +702,7 @@ fun CalculadoraScreen(
              */
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(Dimens.Chico)
+                verticalArrangement = Arrangement.spacedBy(space = Dimens.Chico)
             ) {
 
                 when (seleccion) {
@@ -682,8 +710,7 @@ fun CalculadoraScreen(
                     /*
                      * ECUACIÓN CUADRÁTICA
                      *
-                     * Los coeficientes pueden ser positivos
-                     * o negativos.
+                     * Los coeficientes pueden ser negativos.
                      */
                     TipoCalculo.CUADRATICA -> {
 
@@ -691,21 +718,24 @@ fun CalculadoraScreen(
                             value = campo1,
                             onValueChange = { campo1 = it },
                             labelRes = R.string.label_a,
-                            allowSign = true
+                            allowSign = true,
+                            separadorDecimal = separadorDecimal
                         )
 
                         NumericInputField(
                             value = campo2,
                             onValueChange = { campo2 = it },
                             labelRes = R.string.label_b,
-                            allowSign = true
+                            allowSign = true,
+                            separadorDecimal = separadorDecimal
                         )
 
                         NumericInputField(
                             value = campo3,
                             onValueChange = { campo3 = it },
                             labelRes = R.string.label_c,
-                            allowSign = true
+                            allowSign = true,
+                            separadorDecimal = separadorDecimal
                         )
                     }
 
@@ -719,6 +749,7 @@ fun CalculadoraScreen(
                             onValueChange = { campo1 = it },
                             labelRes = R.string.label_weight,
                             allowSign = false,
+                            separadorDecimal = separadorDecimal,
                             suffixRes = R.string.unit_kg
                         )
 
@@ -727,6 +758,7 @@ fun CalculadoraScreen(
                             onValueChange = { campo2 = it },
                             labelRes = R.string.label_height,
                             allowSign = false,
+                            separadorDecimal = separadorDecimal,
                             suffixRes = R.string.unit_m
                         )
                     }
@@ -741,6 +773,7 @@ fun CalculadoraScreen(
                             onValueChange = { campo1 = it },
                             labelRes = R.string.label_base_major,
                             allowSign = false,
+                            separadorDecimal = separadorDecimal,
                             suffixRes = R.string.unit_m
                         )
 
@@ -749,6 +782,7 @@ fun CalculadoraScreen(
                             onValueChange = { campo2 = it },
                             labelRes = R.string.label_base_minor,
                             allowSign = false,
+                            separadorDecimal = separadorDecimal,
                             suffixRes = R.string.unit_m
                         )
 
@@ -757,6 +791,7 @@ fun CalculadoraScreen(
                             onValueChange = { campo3 = it },
                             labelRes = R.string.label_trapezoid_height,
                             allowSign = false,
+                            separadorDecimal = separadorDecimal,
                             suffixRes = R.string.unit_m
                         )
                     }
@@ -771,6 +806,7 @@ fun CalculadoraScreen(
                             onValueChange = { campo1 = it },
                             labelRes = R.string.label_distance,
                             allowSign = false,
+                            separadorDecimal = separadorDecimal,
                             suffixRes = R.string.unit_m
                         )
 
@@ -779,6 +815,7 @@ fun CalculadoraScreen(
                             onValueChange = { campo2 = it },
                             labelRes = R.string.label_time,
                             allowSign = false,
+                            separadorDecimal = separadorDecimal,
                             suffixRes = R.string.unit_s
                         )
                     }
@@ -786,7 +823,7 @@ fun CalculadoraScreen(
             }
 
             Spacer(
-                modifier = Modifier.height(Dimens.Medio)
+                modifier = Modifier.height(height = Dimens.Medio)
             )
 
             /*
@@ -800,7 +837,7 @@ fun CalculadoraScreen(
                 )
 
                 Spacer(
-                    modifier = Modifier.height(Dimens.Chico)
+                    modifier = Modifier.height(height = Dimens.Chico)
                 )
             }
 
@@ -815,11 +852,11 @@ fun CalculadoraScreen(
 
                     try {
                         resultado = calcular(
-                            context,
-                            seleccion,
-                            campo1,
-                            campo2,
-                            campo3
+                            context = context,
+                            tipo = seleccion,
+                            campo1 = campo1,
+                            campo2 = campo2,
+                            campo3 = campo3
                         )
                         errorMensaje = null
 
@@ -831,7 +868,7 @@ fun CalculadoraScreen(
                 }
             ) {
                 Text(
-                    text = stringResource(R.string.btn_calculate)
+                    text = stringResource(id = R.string.btn_calculate)
                 )
             }
 
@@ -841,7 +878,7 @@ fun CalculadoraScreen(
             if (resultado.isNotEmpty()) {
 
                 Spacer(
-                    modifier = Modifier.height(Dimens.Medio)
+                    modifier = Modifier.height(height = Dimens.Medio)
                 )
 
                 Text(
@@ -874,16 +911,16 @@ private fun PanelesAdaptativos(
         Row(
             modifier = modifier
                 .fillMaxSize()
-                .padding(Dimens.Medio),
+                .padding(all = Dimens.Medio),
 
-            horizontalArrangement = Arrangement.spacedBy(Dimens.Medio)
+            horizontalArrangement = Arrangement.spacedBy(space = Dimens.Medio)
         ) {
 
             Column(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(weight = 1f)
                     .fillMaxHeight()
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(state = rememberScrollState()),
 
                 horizontalAlignment = Alignment.CenterHorizontally,
                 content = izquierdo
@@ -891,9 +928,9 @@ private fun PanelesAdaptativos(
 
             Column(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(weight = 1f)
                     .fillMaxHeight()
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(state = rememberScrollState()),
 
                 horizontalAlignment = Alignment.CenterHorizontally,
                 content = derecho
@@ -905,8 +942,8 @@ private fun PanelesAdaptativos(
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(Dimens.Medio),
+                .verticalScroll(state = rememberScrollState())
+                .padding(all = Dimens.Medio),
 
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -914,7 +951,7 @@ private fun PanelesAdaptativos(
             izquierdo()
 
             Spacer(
-                modifier = Modifier.height(Dimens.Medio)
+                modifier = Modifier.height(height = Dimens.Medio)
             )
 
             derecho()
@@ -935,11 +972,11 @@ private fun BotonMenu(
 ) {
     if (seleccionado) {
         Button(onClick = onClick) {
-            Text(text = stringResource(textoRes))
+            Text(text = stringResource(id = textoRes))
         }
     } else {
         OutlinedButton(onClick = onClick) {
-            Text(text = stringResource(textoRes))
+            Text(text = stringResource(id = textoRes))
         }
     }
 }
