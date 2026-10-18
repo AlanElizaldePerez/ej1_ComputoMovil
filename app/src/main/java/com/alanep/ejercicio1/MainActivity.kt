@@ -4,11 +4,16 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -18,6 +23,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -28,6 +35,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.os.ConfigurationCompat
@@ -86,11 +94,12 @@ enum class Idioma(
 }
 
 /*
- * Dónde se guarda el idioma elegido para recordarlo
+ * Dónde se guardan el idioma y el tema elegidos para recordarlos
  * la próxima vez que se abra la app.
  */
 private const val PREFERENCIAS = "ajustes"
 private const val CLAVE_IDIOMA = "idioma"
+private const val CLAVE_TEMA_OSCURO = "tema_oscuro"
 
 /*
  * Medidas reutilizables. Se declaran una sola vez para no repetir
@@ -100,19 +109,21 @@ private object Dimens {
     val Chico = 8.dp
     val Medio = 16.dp
     val AltoFormula = 100.dp
+    val Borde = 1.dp
 }
 
-/*
- * IMAGEN DE LA FÓRMULA SEGÚN EL CÁLCULO Y EL IDIOMA
- *
- * Los archivos van en res/drawable/ :
- *   español -> formula_xxx      (sin sufijo, es el idioma por defecto)
- *   inglés  -> formula_xxx_en
- *   ruso    -> formula_xxx_ru
- *
- * Los when no tienen "else": si agregas un TipoCalculo o un Idioma nuevo,
- * el compilador marca qué combinación falta.
- */
+private object Apariencia {
+    const val AlfaPanel = 0.88f
+
+    // Fundido entre cambio de tema.
+    const val DuracionFundidoMs = 500
+
+    val HojaFormula = Color.White
+
+    val EscrimNavegacionClaro = android.graphics.Color.argb(0xE6, 0xFF, 0xFF, 0xFF)
+    val EscrimNavegacionOscuro = android.graphics.Color.argb(0x80, 0x1B, 0x1B, 0x1B)
+}
+
 @DrawableRes
 private fun formulaDrawable(
     tipo: TipoCalculo,
@@ -452,67 +463,223 @@ class MainActivity : ComponentActivity() {
 
         setContent {
 
+            val sistemaOscuro = isSystemInDarkTheme()
+
+            var temaOscuroElegido by rememberSaveable {
+                mutableStateOf<Boolean?>(
+                    value = if (preferencias.contains(CLAVE_TEMA_OSCURO)) {
+                        preferencias.getBoolean(CLAVE_TEMA_OSCURO, false)
+                    } else {
+                        null
+                    }
+                )
+            }
+
+            val modoOscuro = temaOscuroElegido ?: sistemaOscuro
+
             /*
-             * SharedPreferences al cerrar y volver a abrir la app.
+             * Idioma elegido por el usuario (null = el del sistema).
              */
             var codigoIdioma by rememberSaveable {
                 mutableStateOf(value = preferencias.getString(CLAVE_IDIOMA, null))
             }
 
-            Ejercicio1Theme {
+            DisposableEffect(key1 = modoOscuro) {
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(
+                        lightScrim = android.graphics.Color.TRANSPARENT,
+                        darkScrim = android.graphics.Color.TRANSPARENT,
+                        detectDarkMode = { modoOscuro }
+                    ),
+                    navigationBarStyle = SystemBarStyle.auto(
+                        lightScrim = Apariencia.EscrimNavegacionClaro,
+                        darkScrim = Apariencia.EscrimNavegacionOscuro,
+                        detectDarkMode = { modoOscuro }
+                    )
+                )
+
+                onDispose { }
+            }
+
+            Ejercicio1Theme(darkTheme = modoOscuro) {
 
                 ConIdioma(codigo = codigoIdioma) {
 
-                    Scaffold(
-                        modifier = Modifier.fillMaxSize(),
+                    AppCalculadora(
+                        modoOscuro = modoOscuro,
 
-                        topBar = {
-                            BarraSuperior(
-                                onIdiomaSeleccionado = { idioma ->
-                                    codigoIdioma = idioma.codigo
+                        onTemaCambiado = { nuevoModoOscuro ->
+                            temaOscuroElegido = nuevoModoOscuro
 
-                                    preferencias.edit()
-                                        .putString(CLAVE_IDIOMA, idioma.codigo)
-                                        .apply()
-                                }
-                            )
+                            preferencias.edit()
+                                .putBoolean(CLAVE_TEMA_OSCURO, nuevoModoOscuro)
+                                .apply()
                         },
 
-                        /*
-                         * safeDrawing = barras del sistema + notch + teclado.
-                         * En horizontal evita que el recorte de la pantalla
-                         * tape el contenido.
-                         */
-                        contentWindowInsets = WindowInsets.safeDrawing
-                    ) { innerPadding ->
+                        onIdiomaSeleccionado = { idioma ->
+                            codigoIdioma = idioma.codigo
 
-                        CalculadoraScreen(
-                            modifier = Modifier.padding(paddingValues = innerPadding)
-                        )
-                    }
+                            preferencias.edit()
+                                .putString(CLAVE_IDIOMA, idioma.codigo)
+                                .apply()
+                        }
+                    )
                 }
             }
         }
     }
 }
 
+@Composable
+private fun AppCalculadora(
+    modoOscuro: Boolean,
+    onTemaCambiado: (Boolean) -> Unit,
+    onIdiomaSeleccionado: (Idioma) -> Unit,
+    esHorizontal: Boolean =
+        LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+) {
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+
+        // El fondo va DETRÁS de todo, incluso detrás de las barras del sistema.
+        FondoTema(modoOscuro = modoOscuro)
+
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+
+            containerColor = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onBackground,
+
+            topBar = {
+                BarraSuperior(
+                    modoOscuro = modoOscuro,
+                    onTemaCambiado = onTemaCambiado,
+                    onIdiomaSeleccionado = onIdiomaSeleccionado
+                )
+            },
+
+            /*
+             * safeDrawing = barras del sistema + notch + teclado.
+             * En horizontal evita que el recorte de la pantalla
+             * tape el contenido.
+             */
+            contentWindowInsets = WindowInsets.safeDrawing
+        ) { innerPadding ->
+
+            CalculadoraScreen(
+                modifier = Modifier.padding(paddingValues = innerPadding),
+                esHorizontal = esHorizontal
+            )
+        }
+    }
+}
+
+@Composable
+private fun FondoTema(
+    modoOscuro: Boolean
+) {
+    Crossfade(
+        targetState = modoOscuro,
+        modifier = Modifier.fillMaxSize(),
+        animationSpec = tween(durationMillis = Apariencia.DuracionFundidoMs)
+    ) { oscuro ->
+
+        Image(
+            painter = painterResource(
+                id = if (oscuro) {
+                    R.drawable.tema_o
+                } else {
+                    R.drawable.tema_c
+                }
+            ),
+
+            contentDescription = null,
+
+            // Crop rellena la pantalla, recorta lo que sobra.
+            contentScale = ContentScale.Crop,
+
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+private fun PanelTranslucido(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+
+        shape = MaterialTheme.shapes.extraLarge,
+
+        // Con un color translúcido hay que indicar también el del contenido.
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = Apariencia.AlfaPanel),
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+
+        border = BorderStroke(
+            width = Dimens.Borde,
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(all = Dimens.Medio),
+
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = content
+        )
+    }
+}
+
 
 /*
- * BARRA SUPERIOR: título a la izquierda y botón de idioma a la derecha.
+ * BARRA SUPERIOR
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun BarraSuperior(
+    modoOscuro: Boolean,
+    onTemaCambiado: (Boolean) -> Unit,
     onIdiomaSeleccionado: (Idioma) -> Unit
 ) {
     TopAppBar(
         title = {
-            Text(text = stringResource(id = R.string.screen_title))
+            Text(
+                text = stringResource(id = R.string.screen_title),
+
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         },
 
         actions = {
+
+            // Muestra el tema al que se va a cambiar
+            TextButton(
+                onClick = { onTemaCambiado(!modoOscuro) }
+            ) {
+                Text(
+                    text = stringResource(
+                        id = if (modoOscuro) {
+                            R.string.theme_switch_to_light
+                        } else {
+                            R.string.theme_switch_to_dark
+                        }
+                    )
+                )
+            }
+
             BotonIdioma(onIdiomaSeleccionado = onIdiomaSeleccionado)
         },
+
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = Apariencia.AlfaPanel)
+        ),
 
         // Respeta el notch y las barras del sistema también en horizontal.
         windowInsets = WindowInsets.safeDrawing.only(
@@ -707,16 +874,24 @@ fun CalculadoraScreen(
                 idioma = idiomaActivo
             )
 
-            Image(
-                painter = painterResource(id = imageRes),
+            // Hoja blanca: las fórmulas (trazo oscuro) se leen igual en tema claro y oscuro.
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = Apariencia.HojaFormula
+            ) {
+                Image(
+                    painter = painterResource(id = imageRes),
 
-                contentDescription =
-                    stringResource(
-                        id = R.string.formula_content_description
-                    ),
+                    contentDescription =
+                        stringResource(
+                            id = R.string.formula_content_description
+                        ),
 
-                modifier = Modifier.height(height = Dimens.AltoFormula)
-            )
+                    modifier = Modifier
+                        .padding(all = Dimens.Chico)
+                        .height(height = Dimens.AltoFormula)
+                )
+            }
         },
 
         /*
@@ -952,21 +1127,19 @@ private fun PanelesAdaptativos(
                 modifier = Modifier
                     .weight(weight = 1f)
                     .fillMaxHeight()
-                    .verticalScroll(state = rememberScrollState()),
-
-                horizontalAlignment = Alignment.CenterHorizontally,
-                content = izquierdo
-            )
+                    .verticalScroll(state = rememberScrollState())
+            ) {
+                PanelTranslucido(content = izquierdo)
+            }
 
             Column(
                 modifier = Modifier
                     .weight(weight = 1f)
                     .fillMaxHeight()
-                    .verticalScroll(state = rememberScrollState()),
-
-                horizontalAlignment = Alignment.CenterHorizontally,
-                content = derecho
-            )
+                    .verticalScroll(state = rememberScrollState())
+            ) {
+                PanelTranslucido(content = derecho)
+            }
         }
 
     } else {
@@ -975,18 +1148,16 @@ private fun PanelesAdaptativos(
             modifier = modifier
                 .fillMaxSize()
                 .verticalScroll(state = rememberScrollState())
-                .padding(all = Dimens.Medio),
-
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(all = Dimens.Medio)
         ) {
 
-            izquierdo()
+            PanelTranslucido(content = izquierdo)
 
             Spacer(
                 modifier = Modifier.height(height = Dimens.Medio)
             )
 
-            derecho()
+            PanelTranslucido(content = derecho)
         }
     }
 }
@@ -1037,5 +1208,56 @@ fun CalculadoraPreview() {
 fun CalculadoraHorizontalPreview() {
     Ejercicio1Theme {
         CalculadoraScreen(esHorizontal = true)
+    }
+}
+
+@Preview(
+    name = "App - tema claro",
+    widthDp = 360,
+    heightDp = 740
+)
+@Composable
+fun AppClaroPreview() {
+    Ejercicio1Theme(darkTheme = false) {
+        AppCalculadora(
+            modoOscuro = false,
+            onTemaCambiado = {},
+            onIdiomaSeleccionado = {},
+            esHorizontal = false
+        )
+    }
+}
+
+@Preview(
+    name = "App - tema oscuro",
+    widthDp = 360,
+    heightDp = 740
+)
+@Composable
+fun AppOscuroPreview() {
+    Ejercicio1Theme(darkTheme = true) {
+        AppCalculadora(
+            modoOscuro = true,
+            onTemaCambiado = {},
+            onIdiomaSeleccionado = {},
+            esHorizontal = false
+        )
+    }
+}
+
+@Preview(
+    name = "App - horizontal oscuro",
+    widthDp = 800,
+    heightDp = 360
+)
+@Composable
+fun AppHorizontalOscuroPreview() {
+    Ejercicio1Theme(darkTheme = true) {
+        AppCalculadora(
+            modoOscuro = true,
+            onTemaCambiado = {},
+            onIdiomaSeleccionado = {},
+            esHorizontal = true
+        )
     }
 }

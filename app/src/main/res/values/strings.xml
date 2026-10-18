@@ -9,7 +9,7 @@
     <string name="formula_content_description">Fórmula del cálculo seleccionado</string>
 
     <!-- Menú -->
-    <string name="calc_cuadratica">Ecuación Cuadrática</string>
+    <string name="calc_cuadratica">Ecuación cuadrática</string>
     <string name="calc_imc">IMC</string>
     <string name="calc_trapecio">Área del trapecio</string>
     <string name="calc_rapidez">Rapidez</string>
@@ -53,5 +53,9 @@
     <string name="result_bmi">IMC: %1$.2f kg/m²</string>
     <string name="result_trapezoid">Área del trapecio: %1$.2f m²</string>
     <string name="result_rapidez">Rapidez: %1$.2f m/s</string>
+
+    <!-- Tema -->
+    <string name="theme_switch_to_dark">Oscuro</string>
+    <string name="theme_switch_to_light">Claro</string>
 
 </resources>
