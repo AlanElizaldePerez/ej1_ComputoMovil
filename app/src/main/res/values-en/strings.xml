@@ -24,9 +24,17 @@
     <string name="label_distance">Distance</string>
     <string name="label_time">Time</string>
 
+    <!--
     <string name="unit_kg">kg</string>
     <string name="unit_m">m</string>
     <string name="unit_s">s</string>
+    -->
+
+    <!-- sistema imperial -->
+    <string name="unit_weight">lb</string>
+    <string name="unit_height">in</string>
+    <string name="unit_length">ft</string>
+    <string name="unit_time">s</string>
 
     <string name="btn_calculate">Calculate</string>
 
@@ -41,9 +49,15 @@
     <string name="error_zero_a">Value a cannot be zero in a quadratic equation.</string>
     <string name="error_discriminant">The discriminant must be greater than or equal to 0 to obtain real roots.</string>
 
+    <!--
     <string name="result_quadratic">x1 = %1$.2f, x2 = %2$.2f</string>
     <string name="result_bmi">BMI: %1$.2f kg/m²</string>
     <string name="result_trapezoid">Trapezoid area: %1$.2f m²</string>
     <string name="result_rapidez">Speed: %1$.2f m/s</string>
+    -->
+
+    <string name="result_bmi">BMI: %1$.2f</string>
+    <string name="result_trapezoid">Trapezoid area: %1$.2f ft²</string>
+    <string name="result_rapidez">Speed: %1$.2f ft/s</string>
 
 </resources>

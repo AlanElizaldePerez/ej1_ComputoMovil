@@ -26,10 +26,18 @@
     <string name="label_distance">Distancia</string>
     <string name="label_time">Tiempo</string>
 
-    <!-- Unidades (sufijo del campo) -->
+    <!-- Unidades (sufijo del campo)
     <string name="unit_kg">kg</string>
     <string name="unit_m">m</string>
     <string name="unit_s">s</string>
+    -->
+
+    <!-- sistema métrico -->
+    <string name="unit_weight">kg</string>
+    <string name="unit_height">m</string>
+    <string name="unit_length">m</string>
+    <string name="unit_time">s</string>
+
 
     <!-- Errores: %1$s = nombre del campo -->
     <string name="error_required">%1$s: campo obligatorio</string>
@@ -41,7 +49,9 @@
 
     <!-- Resultados: %1$.2f = número con 2 decimales -->
     <string name="result_quadratic">x1 = %1$.2f, x2 = %2$.2f</string>
+
     <string name="result_bmi">IMC: %1$.2f kg/m²</string>
     <string name="result_trapezoid">Área del trapecio: %1$.2f m²</string>
     <string name="result_rapidez">Rapidez: %1$.2f m/s</string>
+
 </resources>

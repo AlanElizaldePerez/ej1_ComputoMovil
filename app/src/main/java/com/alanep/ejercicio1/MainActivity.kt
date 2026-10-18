@@ -43,27 +43,38 @@ enum class TipoCalculo {
     VELOCIDAD
 }
 
+enum class SistemaUnidades(
+    val factorImc: Double
+) {
+    METRICO(factorImc = 1.0),
+    IMPERIAL(factorImc = 703.0)
+}
+
 enum class Idioma(
     val codigo: String,
     @StringRes val nombre: Int,
-    val locale: Locale
+    val locale: Locale,
+    val sistemaUnidades: SistemaUnidades
 ) {
     ESPANOL(
         codigo = "es",
         nombre = R.string.language_es,
-        locale = Locale.forLanguageTag("es-MX")
+        locale = Locale.forLanguageTag("es-MX"),
+        sistemaUnidades = SistemaUnidades.METRICO
     ),
 
     INGLES(
         codigo = "en",
         nombre = R.string.language_en,
-        locale = Locale.forLanguageTag("en-US")
+        locale = Locale.forLanguageTag("en-US"),
+        sistemaUnidades = SistemaUnidades.IMPERIAL
     ),
 
     RUSO(
         codigo = "ru",
         nombre = R.string.language_ru,
-        locale = Locale.forLanguageTag("ru-RU")
+        locale = Locale.forLanguageTag("ru-RU"),
+        sistemaUnidades = SistemaUnidades.METRICO
     );
 
     /*
@@ -91,6 +102,17 @@ private object Dimens {
     val AltoFormula = 100.dp
 }
 
+/*
+ * IMAGEN DE LA FÓRMULA SEGÚN EL CÁLCULO Y EL IDIOMA
+ *
+ * Los archivos van en res/drawable/ :
+ *   español -> formula_xxx      (sin sufijo, es el idioma por defecto)
+ *   inglés  -> formula_xxx_en
+ *   ruso    -> formula_xxx_ru
+ *
+ * Los when no tienen "else": si agregas un TipoCalculo o un Idioma nuevo,
+ * el compilador marca qué combinación falta.
+ */
 @DrawableRes
 private fun formulaDrawable(
     tipo: TipoCalculo,
@@ -131,7 +153,7 @@ private fun formulaDrawable(
  * allowSign = false:
  * solamente permite números y punto decimal.
  *
- * Internamente el decimal SIEMPRE es un punto: la coma del ruso se
+ * Internamente el decimal es un punto: la coma del ruso se
  * convierte a punto en NumericInputField antes de llegar aquí.
  */
 private fun isValidNumericInput(
@@ -246,6 +268,7 @@ private fun leerNumero(
             context.getString(mensajeRes, context.getString(labelRes))
         )
     }
+
     return numero
 }
 
@@ -267,12 +290,16 @@ private fun exigirPositivo(
     }
 }
 
+/*
+ * factorImc depende del sistema de unidades del idioma
+ */
 private fun calcular(
     context: Context,
     tipo: TipoCalculo,
     campo1: String,
     campo2: String,
-    campo3: String
+    campo3: String,
+    factorImc: Double
 ): String = when (tipo) {
 
     /*
@@ -315,7 +342,7 @@ private fun calcular(
         exigirPositivo(context = context, valor = peso, labelRes = R.string.label_weight)
         exigirPositivo(context = context, valor = altura, labelRes = R.string.label_height)
 
-        val imc = peso / (altura * altura)
+        val imc = factorImc * peso / (altura * altura)
 
         context.getString(R.string.result_bmi, imc)
     }
@@ -426,7 +453,6 @@ class MainActivity : ComponentActivity() {
         setContent {
 
             /*
-             * rememberSaveable conserva el idioma al girar el dispositivo y
              * SharedPreferences al cerrar y volver a abrir la app.
              */
             var codigoIdioma by rememberSaveable {
@@ -495,10 +521,6 @@ private fun BarraSuperior(
     )
 }
 
-/*
- * Botón con el icono del globo. Al tocarlo abre un menú con los idiomas
- * disponibles; el que se está usando aparece marcado.
- */
 @Composable
 private fun BotonIdioma(
     onIdiomaSeleccionado: (Idioma) -> Unit
@@ -560,25 +582,32 @@ fun CalculadoraScreen(
      * Idioma que se está mostrando. Se usa para:
      *  - elegir la imagen de la fórmula
      *  - saber qué separador decimal se escribe (punto o coma)
+     *  - saber el sistema de unidades (métrico o imperial)
      *  - como "llave" del resultado y del error: cuando cambia el idioma se
      *    limpian, porque ya son texto traducido en el idioma anterior.
+     *    Al girar el dispositivo el idioma no cambia, así que ahí no se pierden.
      */
     val idiomaActivo = idiomaActual()
     val separadorDecimal = idiomaActivo.separadorDecimal
-
+    val sistemaUnidades = idiomaActivo.sistemaUnidades
     var seleccion by rememberSaveable {
         mutableStateOf(value = TipoCalculo.CUADRATICA)
     }
 
-    var campo1 by rememberSaveable {
+    /*
+     * Los campos dependen del sistema de unidades: si pasa de métrico a
+     * imperial (o al revés) se limpian, porque 70 kg no es lo mismo que
+     * 70 lb. Entre idiomas con el mismo sistema (español <-> ruso) se conservan.
+     */
+    var campo1 by rememberSaveable(sistemaUnidades) {
         mutableStateOf(value = "")
     }
 
-    var campo2 by rememberSaveable {
+    var campo2 by rememberSaveable(sistemaUnidades) {
         mutableStateOf(value = "")
     }
 
-    var campo3 by rememberSaveable {
+    var campo3 by rememberSaveable(sistemaUnidades) {
         mutableStateOf(value = "")
     }
 
@@ -589,6 +618,7 @@ fun CalculadoraScreen(
     var errorMensaje by rememberSaveable(idiomaActivo) {
         mutableStateOf<String?>(value = null)
     }
+
     fun seleccionar(tipo: TipoCalculo) {
         seleccion = tipo
         errorMensaje = null
@@ -710,7 +740,8 @@ fun CalculadoraScreen(
                     /*
                      * ECUACIÓN CUADRÁTICA
                      *
-                     * Los coeficientes pueden ser negativos.
+                     * Los coeficientes pueden ser positivos
+                     * o negativos.
                      */
                     TipoCalculo.CUADRATICA -> {
 
@@ -750,7 +781,7 @@ fun CalculadoraScreen(
                             labelRes = R.string.label_weight,
                             allowSign = false,
                             separadorDecimal = separadorDecimal,
-                            suffixRes = R.string.unit_kg
+                            suffixRes = R.string.unit_weight
                         )
 
                         NumericInputField(
@@ -759,7 +790,7 @@ fun CalculadoraScreen(
                             labelRes = R.string.label_height,
                             allowSign = false,
                             separadorDecimal = separadorDecimal,
-                            suffixRes = R.string.unit_m
+                            suffixRes = R.string.unit_height
                         )
                     }
 
@@ -774,7 +805,7 @@ fun CalculadoraScreen(
                             labelRes = R.string.label_base_major,
                             allowSign = false,
                             separadorDecimal = separadorDecimal,
-                            suffixRes = R.string.unit_m
+                            suffixRes = R.string.unit_length
                         )
 
                         NumericInputField(
@@ -783,7 +814,7 @@ fun CalculadoraScreen(
                             labelRes = R.string.label_base_minor,
                             allowSign = false,
                             separadorDecimal = separadorDecimal,
-                            suffixRes = R.string.unit_m
+                            suffixRes = R.string.unit_length
                         )
 
                         NumericInputField(
@@ -792,7 +823,7 @@ fun CalculadoraScreen(
                             labelRes = R.string.label_trapezoid_height,
                             allowSign = false,
                             separadorDecimal = separadorDecimal,
-                            suffixRes = R.string.unit_m
+                            suffixRes = R.string.unit_length
                         )
                     }
 
@@ -807,7 +838,7 @@ fun CalculadoraScreen(
                             labelRes = R.string.label_distance,
                             allowSign = false,
                             separadorDecimal = separadorDecimal,
-                            suffixRes = R.string.unit_m
+                            suffixRes = R.string.unit_length
                         )
 
                         NumericInputField(
@@ -816,7 +847,7 @@ fun CalculadoraScreen(
                             labelRes = R.string.label_time,
                             allowSign = false,
                             separadorDecimal = separadorDecimal,
-                            suffixRes = R.string.unit_s
+                            suffixRes = R.string.unit_time
                         )
                     }
                 }
@@ -856,7 +887,8 @@ fun CalculadoraScreen(
                             tipo = seleccion,
                             campo1 = campo1,
                             campo2 = campo2,
-                            campo3 = campo3
+                            campo3 = campo3,
+                            factorImc = sistemaUnidades.factorImc
                         )
                         errorMensaje = null
 
